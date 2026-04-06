@@ -28,14 +28,6 @@ pip install PyQt5
 python PyQt/ntrip_stream_tester.py
 ```
 
-## Included Tools
-
-| Tool | Path | Description |
-|------|------|-------------|
-| **Desktop GUI** | `PyQt/ntrip_stream_tester.py` | Full-featured PyQt5 desktop app (the main tool) |
-| **CLI Script** | `Script/ntrip_test.py` | Command-line NTRIP tester |
-| **Web UI** | `Web/ntrip_server.py` | Browser-based NTRIP tester with HTML frontend |
-
 ## Supported RTCM Messages
 
 GPS (1001-1004, 1019, 1074-1077), GLONASS (1009-1012, 1020, 1084-1087), Galileo (1094-1097), BeiDou (1124-1127), QZSS (1114-1117), Station info (1005-1008, 1033), and GLONASS bias (1230).
