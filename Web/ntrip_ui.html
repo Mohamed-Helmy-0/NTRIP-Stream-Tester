@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NTRIP Stream Tester</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; padding: 24px; }
+  h1 { font-size: 1.4rem; font-weight: 600; color: #fff; margin-bottom: 4px; }
+  .subtitle { font-size: 0.82rem; color: #888; margin-bottom: 24px; }
+
+  .card { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #6c8ebf; margin-bottom: 14px; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  label { display: block; font-size: 0.75rem; color: #aaa; margin-bottom: 4px; }
+  input {
+    width: 100%; padding: 8px 10px; background: #0f1117;
+    border: 1px solid #2e3144; border-radius: 6px;
+    color: #e0e0e0; font-size: 0.85rem; outline: none;
+    transition: border 0.15s;
+  }
+  input:focus { border-color: #4a7ddb; }
+  input:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 4px; }
+  button {
+    padding: 9px 22px; border-radius: 6px; border: none;
+    font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+  }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-connect { background: #3a7bd5; color: #fff; }
+  .btn-connect:hover:not(:disabled) { background: #4a8be5; }
+  .btn-stop { background: #c0392b; color: #fff; }
+  .btn-stop:hover:not(:disabled) { background: #e74c3c; }
+  .btn-clear { background: #2a2d3a; color: #aaa; }
+  .btn-clear:hover:not(:disabled) { background: #3a3d4a; }
+
+  .status-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-radius: 6px;
+    background: #0f1117; border: 1px solid #2a2d3a;
+    font-size: 0.8rem; margin-bottom: 16px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; flex-shrink: 0; }
+  .dot.connecting { background: #f39c12; animation: pulse 1s infinite; }
+  .dot.connected { background: #2ecc71; }
+  .dot.error { background: #e74c3c; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 12px; text-align: center; }
+  .stat-val { font-size: 1.4rem; font-weight: 700; color: #4a8be5; }
+  .stat-lbl { font-size: 0.7rem; color: #777; margin-top: 2px; }
+
+  .log-wrap { background: #0a0c12; border: 1px solid #2a2d3a; border-radius: 8px; height: 320px; overflow-y: auto; padding: 12px; font-family: 'Consolas', monospace; font-size: 0.78rem; }
+  .log-wrap p { margin-bottom: 3px; line-height: 1.5; }
+  .log-info  { color: #aaa; }
+  .log-ok    { color: #2ecc71; }
+  .log-warn  { color: #f39c12; }
+  .log-err   { color: #e74c3c; }
+  .log-rtcm  { color: #74b9ff; }
+  .log-head  { color: #a29bfe; }
+
+  .msg-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .msg-table th { text-align: left; padding: 5px 8px; color: #6c8ebf; font-weight: 600; border-bottom: 1px solid #2a2d3a; }
+  .msg-table td { padding: 4px 8px; border-bottom: 1px solid #1e2130; }
+  .msg-table tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 0.7rem; background: #1e3a5f; color: #74b9ff; }
+
+  .rtcm-wrap { max-height: 180px; overflow-y: auto; }
+</style>
+</head>
+<body>
+
+<h1>🛰 NTRIP Stream Tester</h1>
+<p class="subtitle">Connect to an NTRIP caster and inspect RTCM3 messages in real time</p>
+
+<!-- Config -->
+<div class="card">
+  <h2>Connection Settings</h2>
+  <div class="grid2" style="margin-bottom:12px">
+    <div><label>Host / IP</label><input id="host" value="13.56.117.10"></div>
+    <div><label>Port</label><input id="port" value="2101" type="number"></div>
+  </div>
+  <div class="grid2" style="margin-bottom:12px">
+    <div><label>Mountpoint</label><input id="mount" value="AUTO"></div>
+    <div><label>Duration (s) — 0 = unlimited</label><input id="duration" value="30" type="number"></div>
+  </div>
+  <div class="grid2" style="margin-bottom:12px">
+    <div><label>Username</label><input id="user" placeholder="your@email.com"></div>
+    <div><label>Password</label><input id="pass" type="password" placeholder="••••••••"></div>
+  </div>
+  <div class="grid3">
+    <div><label>Approx Latitude</label><input id="lat" value="24.4539"></div>
+    <div><label>Approx Longitude</label><input id="lon" value="54.3773"></div>
+    <div><label>Approx Altitude (m)</label><input id="alt" value="10.0"></div>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="btn-row" style="margin-bottom:16px">
+  <button class="btn-connect" id="btnConnect" onclick="startTest()">▶ Connect</button>
+  <button class="btn-stop"    id="btnStop"    onclick="stopTest()" disabled>■ Stop</button>
+  <button class="btn-clear"                   onclick="clearAll()">🗑 Clear</button>
+</div>
+
+<!-- Status -->
+<div class="status-bar">
+  <div class="dot" id="dot"></div>
+  <span id="statusText">Idle</span>
+</div>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat"><div class="stat-val" id="statBytes">0</div><div class="stat-lbl">Bytes Received</div></div>
+  <div class="stat"><div class="stat-val" id="statMsgs">0</div><div class="stat-lbl">RTCM Frames</div></div>
+  <div class="stat"><div class="stat-val" id="statTypes">0</div><div class="stat-lbl">Unique Types</div></div>
+  <div class="stat"><div class="stat-val" id="statElapsed">0s</div><div class="stat-lbl">Elapsed</div></div>
+</div>
+
+<!-- Log -->
+<div class="card">
+  <h2>Log</h2>
+  <div class="log-wrap" id="log"></div>
+</div>
+
+<!-- RTCM breakdown -->
+<div class="card">
+  <h2>RTCM Message Breakdown</h2>
+  <div class="rtcm-wrap">
+    <table class="msg-table">
+      <thead><tr><th>Type</th><th>Count</th><th>Description</th></tr></thead>
+      <tbody id="rtcmTable"><tr><td colspan="3" style="color:#555;padding:8px">No messages yet</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ── RTCM type descriptions ────────────────────────────────────────────────────
+const RTCM_DESC = {
+  1001:"L1-Only GPS RTK",1002:"Extended L1 GPS RTK",1003:"L1/L2 GPS RTK",
+  1004:"Extended L1/L2 GPS RTK",1005:"Stationary RTK Ref (no height)",
+  1006:"Stationary RTK Ref (with height)",1007:"Antenna Descriptor",
+  1008:"Antenna Serial No",1009:"L1 GLONASS RTK",1010:"Extended L1 GLONASS RTK",
+  1011:"L1/L2 GLONASS RTK",1012:"Extended L1/L2 GLONASS RTK",
+  1019:"GPS Ephemeris",1020:"GLONASS Ephemeris",
+  1033:"Receiver/Antenna Descriptor",1074:"GPS MSM4",1075:"GPS MSM5",
+  1077:"GPS MSM7",1084:"GLONASS MSM4",1085:"GLONASS MSM5",1087:"GLONASS MSM7",
+  1094:"Galileo MSM4",1095:"Galileo MSM5",1097:"Galileo MSM7",
+  1114:"QZSS MSM4",1117:"QZSS MSM7",1124:"BeiDou MSM4",1127:"BeiDou MSM7",
+  1230:"GLONASS Code-Phase Biases",4072:"Proprietary / NavIC",
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let ws        = null;
+let running   = false;
+let startTime = null;
+let timer     = null;
+let msgCounts = {};
+let totalBytes= 0;
+let totalMsgs = 0;
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+const log = (msg, cls='log-info') => {
+  const el = document.getElementById('log');
+  const p  = document.createElement('p');
+  p.className = cls;
+  p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  el.appendChild(p);
+  el.scrollTop = el.scrollHeight;
+};
+
+const setStatus = (text, state) => {
+  document.getElementById('statusText').textContent = text;
+  const dot = document.getElementById('dot');
+  dot.className = 'dot' + (state ? ' ' + state : '');
+};
+
+const updStats = () => {
+  document.getElementById('statBytes').textContent   = totalBytes.toLocaleString();
+  document.getElementById('statMsgs').textContent    = totalMsgs;
+  document.getElementById('statTypes').textContent   = Object.keys(msgCounts).length;
+  const elapsed = startTime ? Math.floor((Date.now()-startTime)/1000) : 0;
+  document.getElementById('statElapsed').textContent = elapsed + 's';
+};
+
+const updTable = () => {
+  const tbody = document.getElementById('rtcmTable');
+  if (!Object.keys(msgCounts).length) return;
+  tbody.innerHTML = '';
+  Object.keys(msgCounts).sort((a,b)=>a-b).forEach(t => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="badge">RTCM ${t}</span></td>
+      <td>${msgCounts[t]}</td>
+      <td style="color:#aaa">${RTCM_DESC[t] || 'Unknown / Proprietary'}</td>`;
+    tbody.appendChild(tr);
+  });
+};
+
+const setInputs = disabled => {
+  ['host','port','mount','user','pass','lat','lon','alt','duration']
+    .forEach(id => document.getElementById(id).disabled = disabled);
+  document.getElementById('btnConnect').disabled = disabled;
+  document.getElementById('btnStop').disabled    = !disabled;
+};
+
+// ── Python backend via WebSocket ──────────────────────────────────────────────
+// The HTML talks to a tiny Python WebSocket server (server.py) on ws://localhost:8765
+// Messages: JSON {type, ...}
+
+function startTest() {
+  const cfg = {
+    host:     document.getElementById('host').value.trim(),
+    port:     parseInt(document.getElementById('port').value),
+    mount:    document.getElementById('mount').value.trim(),
+    user:     document.getElementById('user').value.trim(),
+    pass:     document.getElementById('pass').value,
+    lat:      parseFloat(document.getElementById('lat').value),
+    lon:      parseFloat(document.getElementById('lon').value),
+    alt:      parseFloat(document.getElementById('alt').value),
+    duration: parseInt(document.getElementById('duration').value) || 0,
+  };
+
+  if (!cfg.host || !cfg.user || !cfg.pass) {
+    log('⚠ Please fill in Host, Username and Password.', 'log-warn'); return;
+  }
+
+  msgCounts  = {}; totalBytes = 0; totalMsgs = 0;
+  startTime  = Date.now();
+  running    = true;
+  setInputs(true);
+  setStatus('Connecting...', 'connecting');
+  log(`Connecting to ${cfg.host}:${cfg.port} → /${cfg.mount}`, 'log-info');
+
+  timer = setInterval(updStats, 500);
+
+  try {
+    ws = new WebSocket('ws://localhost:8765');
+  } catch(e) {
+    log('❌ Cannot reach local server. Is server.py running?', 'log-err');
+    stopTest(); return;
+  }
+
+  ws.onopen = () => { ws.send(JSON.stringify({type:'start', cfg})); };
+
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'status') {
+      setStatus(msg.text, msg.state);
+      log(msg.text, msg.ok ? 'log-ok' : 'log-err');
+    } else if (msg.type === 'header') {
+      msg.lines.forEach(l => log(l, 'log-head'));
+    } else if (msg.type === 'rtcm') {
+      msgCounts[msg.msg_type] = (msgCounts[msg.msg_type]||0) + 1;
+      totalBytes += msg.bytes;
+      totalMsgs++;
+      log(`RTCM ${msg.msg_type} — ${RTCM_DESC[msg.msg_type]||'Unknown'} | bytes: ${totalBytes.toLocaleString()}`, 'log-rtcm');
+      updTable();
+    } else if (msg.type === 'warn') {
+      log('⚠ ' + msg.text, 'log-warn');
+    } else if (msg.type === 'done') {
+      log('Stream ended. ' + (msg.text||''), 'log-ok');
+      stopTest(false);
+    }
+  };
+
+  ws.onerror = () => {
+    log('❌ WebSocket error. Make sure server.py is running (python server.py).', 'log-err');
+    stopTest();
+  };
+  ws.onclose = () => { if (running) stopTest(false); };
+}
+
+function stopTest(sendStop=true) {
+  running = false;
+  clearInterval(timer);
+  updStats();
+  if (ws && sendStop) { try { ws.send(JSON.stringify({type:'stop'})); } catch(_){} }
+  if (ws) { ws.close(); ws = null; }
+  setStatus('Idle', '');
+  setInputs(false);
+}
+
+function clearAll() {
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('rtcmTable').innerHTML =
+    '<tr><td colspan="3" style="color:#555;padding:8px">No messages yet</td></tr>';
+  msgCounts={}; totalBytes=0; totalMsgs=0; startTime=null;
+  updStats();
+}
+</script>
+</body>
+</html>
